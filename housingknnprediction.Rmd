@@ -1,0 +1,122 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+housing
+
+summary(housing)
+
+
+set.seed(125)
+housing_split <- initial_split(housing , prop = 0.80 , strata = "median_house_value") 
+
+housing_train <- training(housing_split)
+housing_test <- testing(housing_split)  
+
+dim(housing_test)
+dim(housing_train)
+```
+
+```{r}
+housing_rec <- recipe(median_house_value ~. , data = housing_train)
+
+housing_rec
+
+housing_rec <- housing_rec %>% 
+  step_log(all_outcomes()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_string2factor(ocean_proximity) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_impute_mean(all_numeric()) %>%
+  prep()
+
+housing_rec
+```
+
+```{r}
+housing_train_process <- bake(housing_rec , housing_train)
+
+housing_test_process <- bake(housing_rec , housing_test)
+
+housing_train_process
+
+housing_test_process
+
+```
+
+```{r}
+
+```
+
+
+
+```{r}
+KNN_housing <- nearest_neighbor(neighbors = 3) %>%
+  set_engine("kknn") %>%
+  set_mode("regression")
+```
+
+```{r}
+KNN_fit_housing <- KNN_housing %>%
+  fit(formula = median_house_value ~., data = housing_train_process)
+
+KNN_fit_housing
+```
+
+```{r}
+knn_predictions_housing <- predict(KNN_fit_housing , new_data = housing_test_process)
+```
+
+```{r}
+knn_test_results_housing <- housing_test_process %>% 
+  select(median_house_value) %>% 
+  dplyr::bind_cols(knn_predictions_housing)
+
+knn_test_results_housing
+```
+
+```{r}
+rmse <- rmse(knn_test_results_housing, truth = median_house_value , estimate  = .pred)
+
+rmse
+```
+
+```{r}
+rsq <- rsq(knn_test_results_housing , truth = median_house_value , estimate = .pred)
+
+rsq
+```
+
+```{r}
+lm_housing <- linear_reg() %>%
+  set_engine("lm") %>%
+  set_mode("regression")
+```
+
+```{r}
+lm_fit_housing <- lm_housing %>%
+  fit(formula = median_house_value ~., data = housing_train_process)
+```
+
+```{r}
+lm_predictions_housing <- predict(lm_fit_housing , new_data = housing_test_process)
+```
+
+```{r}
+lm_test_results_housing <- housing_test_process %>%
+  select(median_house_value) %>% 
+  dplyr::bind_cols(lm_predictions_housing)
+
+lm_test_results_housing
+```
+
+```{r}
+rmse_lm_housing <- rmse(lm_test_results_housing , truth = median_house_value , estimate = .pred)
+
+rmse_lm_housing
+```
+

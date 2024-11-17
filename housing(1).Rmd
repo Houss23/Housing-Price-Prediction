@@ -1,0 +1,166 @@
+---
+title: "R Notebook"
+output:
+  word_document: default
+  html_notebook: default
+  pdf_document: default
+---
+
+# calling for te packages
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(readxl)
+library(broom)
+library(janitor)
+```
+
+# importing the data
+```{r}
+housing <- read_xlsx("housing.xlsx")
+str(housing)
+```
+# summary data
+```{r}
+summary(housing)
+```
+# the target distribution
+```{r}
+housing %>% ggplot(aes(x=median_house_value))+
+  geom_histogram(color="white")
+```
+
+```{r}
+housing <- select(housing,-longitude, -latitude)
+str(housing)
+```
+# the target outliers
+```{r}
+housing %>% ggplot(aes(y=median_house_value))+
+  geom_boxplot(outlier.colour = "red")
+```
+# correlation matrix
+```{r}
+
+M<-housing %>% 
+  drop_na(total_bedrooms) %>% 
+   select(-ocean_proximity, ) %>%  cor()
+M
+```
+### split data
+```{r}
+set.seed(222)
+housing_split <-initial_split(housing,
+                              prop = 0.8,
+                              strata ="median_house_value" )
+housing_train <- training(housing_split)
+housing_test <- testing(housing_split)
+housing_split
+```
+### data preprocessig
+```{r}
+housing_rec <- recipe(median_house_value~.,housing_train)
+```
+
+# make the rec
+```{r}
+housing_rec <- housing_rec %>% 
+  step_log(all_outcomes()) %>% # log transforamtion
+  step_normalize(all_numeric_predictors()) %>% # normalization of num
+  step_string2factor(ocean_proximity) %>% # char to factor transformation
+  step_dummy(all_nominal()) %>% # transform dammy variables
+  step_impute_mean(all_numeric_predictors()) %>% 
+  prep()# NA remplaced by the mean
+  housing_rec
+```
+
+# bake
+```{r}
+housing_train_proc <-bake(housing_rec,housing_train)
+housing_train_proc
+```
+
+## Complete model fitting process with last_fit()
+```{r}
+# Define a linear regression model
+linear_model <- linear_reg() %>% 
+  set_engine('lm') %>% 
+  set_mode('regression')
+```
+
+# KNN
+```{r}
+KNN_model <- nearest_neighbor(neighbors = 3) %>% 
+  set_engine('kknn') %>% 
+  set_mode('regression')
+```
+
+
+# Train linear_model with last_fit()
+```{r}
+# Train linear_model with last_fit()
+linear_fit <- linear_model %>% 
+  fit(median_house_value  ~. , housing_train_proc)
+```
+
+# bake the testing data
+```{r}
+housing_testing_proc <-bake(housing_rec,housing_test)
+housing_testing_proc
+```
+
+# the test result lm
+```{r}
+housing_test_proc<- bake(housing_rec,housing_test)
+housing_pred <- predict(linear_fit, housing_test_proc)
+housing_test_proc_final <- housing_test_proc %>% 
+     dplyr::bind_cols(housing_pred)
+housing_test_proc_final
+```
+# RMSE lm model
+```{r}
+rmse <- housing_test_proc_final %>% 
+  rmse(truth= median_house_value, estimate= .pred)
+rmse
+```
+# training the knn model
+```{r}
+KNN_fit <- fit(KNN_model,median_house_value~.,data = housing_train_proc)
+KNN_fit
+```
+# the knn model testing result
+```{r}
+housing_pred1 <- predict(KNN_fit, housing_test_proc)
+housing_test_proc_final1 <- housing_test_proc %>% 
+     dplyr::bind_cols(housing_pred1)
+housing_test_proc_final1
+```
+# RMSE knn
+```{r}
+rmse <- housing_test_proc_final1 %>% 
+  rmse(truth= median_house_value, estimate= .pred)
+rmse
+```
+# randomforest model
+```{r}
+rand <- rand_forest( mtry = 5,
+  trees = 200) %>% 
+  set_engine("ranger") %>% 
+  set_mode('regression')
+rand_fit <- fit(rand,median_house_value~.,data = housing_train_proc)
+rand_fit
+```
+# random forest model testing result
+```{r}
+housing_pred2 <- predict(rand_fit, housing_test_proc)
+housing_test_proc_final2 <- housing_test_proc %>% 
+     dplyr::bind_cols(housing_pred2)
+housing_test_proc_final2
+```
+# RMSE rand_forest
+```{r}
+rmse <- housing_test_proc_final2 %>% 
+  rmse(truth= median_house_value, estimate= .pred)
+rmse
+```
+### The best model is the random forest model with the minimum RMSE= 0.29 

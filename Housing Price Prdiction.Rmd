@@ -1,0 +1,405 @@
+---
+title: "R Notebook"
+output:
+  html_notebook: default
+  word_document: default
+---
+
+
+
+### Necessary packages
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+
+### Working directory
+```{r}
+getwd()
+list.files()
+```
+
+###  data import
+```{r}
+housing_price <- read_xlsx("housing.xlsx")
+
+head(housing_price)
+```
+
+### Data Structure
+```{r}
+glimpse(housing_price)
+```
+
+### Summary statitsica and check for  the missing values (NA’s)  of each column:
+```{r}
+summary(housing_price)
+```
+
+
+### Check for outliers for the target variables:
+
+#### Outlier detection with boxplot
+```{r}
+ggplot( data = housing_price, aes(y=median_house_value ))+
+  geom_boxplot(outlier.colour = "red")
+```
+
+# IQR method
+```{r}
+summary(housing_price$median_house_value)
+```
+
+```{r}
+Q1 <-119600
+Q3 <- 264725
+IQR <- Q3 - Q1
+IQR
+IQR(housing_price$median_house_value)
+```
+
+### filter the outliers from the data 
+```{r}
+outliers<-  housing_price %>% 
+  filter( median_house_value < Q1 - 1.5 *IQR  | median_house_value > Q3 + 1.5 *IQR )
+
+outliers
+
+nrow(outliers)/ nrow(housing_price)*100
+```
+
+### Look for the distribution of the target variable Median House Value
+```{r}
+ggplot( data = housing_price, aes(x=median_house_value ))+
+   geom_histogram(color= "white")
+  
+```
+
+### Transforming the distribution of the Median House Value using with log transformation
+
+### with log transformation
+```{r}
+ggplot(data = housing_price, aes(x= log(median_house_value )))+
+   geom_histogram(color= "white")
+   
+```
+
+
+
+### Detect outliers atr log transformation
+
+## boxplot
+```{r}
+ggplot(data = housing_price, aes(y= log(median_house_value )))+
+   #geom_histogram(color= "white")
+   geom_boxplot(outlier.colour = "red")
+```
+
+### Applied the  log transfomation to the  median_house_value (the target variable)
+```{r}
+housing_priceT <- housing_price %>% 
+  mutate(log_median_house_value = log(median_house_value))
+
+```
+
+```{r}
+summary(housing_priceT)
+```
+
+# Applying the IQR method to detect outliers
+```{r}
+summary(housing_priceT$log_median_house_value)
+```
+
+### IQR
+```{r}
+Q1 <-11.691
+Q3 <- 12.486 
+IQR <- Q3 - Q1
+IQR
+
+```
+
+
+#outlier detection
+
+```{r}
+outliers <- housing_priceT %>% 
+  filter( log_median_house_value < Q1 - 1.5 *IQR  | log_median_house_value  > Q3 + 1.5 *IQR )
+
+
+dim(outliers)
+
+```
+
+we detect 26 points as outliers
+
+
+### drop outliers
+```{r}
+
+housing_price %>% 
+  filter( median_house_value > Q1 - 1.5 *IQR  & median_house_value < Q3 + 1.5 *IQR )
+
+```
+
+
+###  Applied the  log transfomation to the  median_house_value (the target variable)
+```{r}
+housing_priceT <- housing_price %>% 
+  mutate(median_house_value = log(median_house_value))
+
+```
+
+we detect 26 points as outliers
+
+### Look for the distribution of the features numerical columns
+
+```{r fig.height=4, fig.width=8}
+
+housing_price %>% 
+  pivot_longer(cols =housing_median_age : median_income,names_to = "variables", values_to = "values" ) %>% 
+                    
+ggplot( aes(x= values)) +
+  geom_histogram() +
+  facet_wrap(~ variables, scales = 'free_x') 
+ 
+```
+
+### Analyze the correlation of each variable with the target variable
+
+```{r fig.height=4, fig.width=10 }
+housing_price %>% 
+  pivot_longer(cols =housing_median_age : median_income,names_to = "variables", values_to = "values" ) %>% 
+                    
+ggplot( aes(x= values, y= median_house_value)) +
+  geom_point() +
+  facet_wrap(~ variables, scales = 'free_x') 
+ 
+```
+
+
+###  Correlation Matrix
+```{r fig.height=6, fig.width=10}
+
+M<-housing_price %>% 
+  drop_na(total_bedrooms) %>% 
+   select(-ocean_proximity, ) %>%  cor()
+M
+```
+
+### Correlation Matrix plot
+```{r fig.height=5, fig.width=10}
+library(corrplot)
+corrplot( M, method = "number")
+
+```
+  
+  
+### Impact of Ocean Proximity on housing price
+
+```{r fig.height=5, fig.width= 8}
+ggplot(data= housing_price, aes(x= ocean_proximity, y =median_house_value, fill= ocean_proximity))+
+  geom_boxplot()
+```
+
+
+# Plotting longitude and latitude to visualize housing locations
+
+```{r fig.height=5, fig.width= 8}
+ggplot(housing_price, aes(x = longitude, y = latitude, color = median_house_value)) +
+  geom_point()+
+  scale_color_gradient(low = "yellow", high = "red")
+
+```
+
+
+## Data Cleaning
+
+### Convert ocean_proximity variable to factor
+```{r}
+ housing_price <- housing_price %>% 
+  mutate(ocean_proximity = as.factor(ocean_proximity))
+
+housing_price
+```
+
+
+### Ratio of NA's to al data
+```{r}
+(sum(is.na(housing_price$total_bedrooms))/ nrow(housing_price)) * 100
+```
+(about 1%)
+
+### Drop NA's
+```{r}
+housing_price <- housing_price %>% 
+               drop_na(total_bedrooms)
+summary(housing_price$total_bedrooms)
+```
+
+### Applied the  log transfomation to the  median_house_value (the target variable)
+```{r}
+housing_price <- housing_price %>% 
+  mutate(log_median_house_value = log(median_house_value))
+
+housing_price
+```
+
+### Drop the outliers in the target vriable ( median house value).
+```{r}
+housing_price <- housing_price %>% 
+  filter(!median_house_value %in% outliers$log_median_house_value)
+
+```
+
+## last check for aoutliers 
+```{r}
+ggplot(data = housing_price, aes(y= log_median_house_value ))+
+   geom_boxplot(outlier.colour = "red")
+
+```
+
+
+
+## Data Preprocessing 
+### Scaling or standarzing  the numerical features using the (Min-Max method):
+
+min-max 
+
+z = x- min(x)/ max(x)-mix(x)
+
+normalisation (Scaling)
+
+z = x -mean(x) / sd(x) --> scale
+
+#### The Normalize function
+```{r}
+
+normalize <- function(x) {
+  result <- (x - min(x, na.rm = TRUE)
+  ) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+  
+  return(result)
+}
+
+```
+
+
+### apply to the numerical features
+
+```{r}
+housing_price <- housing_price %>% 
+ mutate(housing_median_age = normalize(housing_median_age),
+        total_rooms = normalize(total_rooms), 
+        total_bedrooms = normalize(total_bedrooms),
+        population = normalize(population),
+        households = normalize(households),
+        median_income = normalize(median_income)
+        )
+housing_price
+```
+
+
+### Convert data to factors Dummy variable (one hote encoding)
+```{r}
+levels(housing_price$ocean_proximity)
+```
+
+```{r}
+housing_price <- housing_price %>% 
+  mutate( `<1H OCEAN` = if_else(ocean_proximity =="<1H OCEAN", 1, 0),
+          INLAND = if_else(ocean_proximity =="INLAND", 1, 0),
+          ISLAND  = if_else(ocean_proximity =="ISLAND", 1, 0),
+          `NEAR BAY` = if_else(ocean_proximity =="NEAR BAY", 1, 0),
+          `NEAR OCEAN` = if_else(ocean_proximity =="<1H OCEAN", 1, 0))
+housing_price
+```
+
+### Final data
+```{r}
+housing_price <- housing_price %>% 
+  select(-median_house_value,-ocean_proximity) 
+housing_price
+```
+
+## Selecting and Training Machine Learning Models.
+
+
+### Build a linear regression model using Train/Test -Split
+
+#### Split the dataset into training and testing sets (80-20 ratio)
+```{r}
+library(rsample)
+set.seed(222)
+# Save the split information for an 80/20 split of the data
+housing_split <- initial_split(housing_price, prop = 0.80)
+housing_split
+
+```
+
+#### Split the dataset into training and testing 
+```{r}
+housing_train <- training(housing_split)
+housing_test  <-  testing(housing_split)
+
+dim(housing_train)
+dim(housing_test)
+```
+
+
+#### Create a linear regression model using the training dataset
+```{r}
+lm_model <- lm(formula = log_median_house_value  ~., data =housing_train)
+```
+
+### model output
+```{r}
+summary(lm_model)
+```
+
+
+### Model Evaluation
+
+####  Make predictions on the test dataset using the trained model
+```{r}
+predictions <- predict(lm_model, newdata = housing_test)
+```
+
+2. Evaluate the model's performance using appropriate metrics (e.g., RMSE, MSE, R-squared)
+
+
+## testing MSE
+$$MSE_{Test} = 1/n \sum_{i=1}^{n}(y - \hat{y})^2$$
+
+
+```{r}
+MSE <- mean((housing_test$log_median_house_value - predictions)^2)
+MSE
+
+```
+
+
+### Predict the price for an new House in California
+
+####  Define the new house charactristics
+```{r}
+new_data <- data.frame(longitude =-120.80	,latitude = 37.50 , housing_median_age=  0.41, 
+           total_rooms = 0.05,  total_bedrooms = 0.08 ,    
+           population = 0.17, households= 0.24, median_income= 0.35,
+           `<1H OCEAN`= 0, INLAND = 1,ISLAND = 0,`NEAR BAY` = 0,`NEAR OCEAN` =0
+           ) %>%  rename(`<1H OCEAN` = X.1H.OCEAN, 
+                         `NEAR OCEAN`= NEAR.OCEAN,
+                         `NEAR BAY` = NEAR.BAY )
+new_data
+```
+
+### Predict the price  using our trainde model
+```{r}
+predict(lm_model, newdata = new_data)
+```
+```{r}
+exp(11.49573 )
+```
+

@@ -1,0 +1,21 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(broom)
+library(readxl)
+library(rsample)
+housing_price <- read_excel("C:/Users/Hp/Downloads/housing.xlsx")
+housing_price
+```
+
+```{r}
+
+```
+
